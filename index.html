@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Antigravity Inference Logger & Chatbot</title>
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-row">
+          <div class="logo">
+            <span class="logo-icon">▲</span>
+            <div class="logo-text">
+              <h2>Antigravity</h2>
+              <span>Inference Logger</span>
+            </div>
+          </div>
+          <button id="theme-toggle" title="Toggle theme" class="theme-toggle-btn">🌙</button>
+        </div>
+      </div>
+
+      <nav class="navigation-tabs">
+        <button id="tab-chat-btn" class="nav-tab active" onclick="switchTab('chat')">
+          <span class="nav-icon">💬</span> Chat
+        </button>
+        <button id="tab-dashboard-btn" class="nav-tab" onclick="switchTab('dashboard')">
+          <span class="nav-icon">📊</span> Dashboard & Logs
+        </button>
+      </nav>
+
+      <div class="conversations-section">
+        <div class="section-title">
+          <h3>Conversations</h3>
+          <button id="new-chat-btn" title="Start a new chat">+</button>
+        </div>
+        <div id="conversations-list" class="conversations-list">
+          <!-- Populated dynamically -->
+          <div class="list-empty">No conversations yet</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- Chat Pane -->
+      <section id="chat-pane" class="pane active">
+        <header class="pane-header">
+          <div class="header-info">
+            <h1 id="active-chat-title">Select or Create a Conversation</h1>
+            <p id="active-chat-subtitle">Start chatting below to test real-time inference logging.</p>
+          </div>
+          
+          <!-- LLM Parameters Form -->
+          <div class="llm-selector-group">
+            <div class="selector-field">
+              <label for="provider-select">Provider</label>
+              <select id="provider-select">
+                <option value="mock" selected>Mock API (Offline)</option>
+                <option value="gemini">Gemini API</option>
+                <option value="openai">OpenAI API</option>
+              </select>
+            </div>
+            <div class="selector-field">
+              <label for="model-select">Model</label>
+              <select id="model-select">
+                <!-- Dynamically updated based on provider -->
+                <option value="mock-llm">mock-llm (Standard)</option>
+              </select>
+            </div>
+          </div>
+        </header>
+
+        <!-- Message Window -->
+        <div id="chat-messages-container" class="chat-messages-container">
+          <div class="welcome-box">
+            <h3>Welcome to Antigravity Logger!</h3>
+            <p>This application demonstrates a lightweight, near-real-time inference SDK wrapper, ingestion pipeline, and logging queue.</p>
+            <div class="demo-tips">
+              <h4>💡 Try these test scenarios:</h4>
+              <ul>
+                <li><strong>Normal Chat:</strong> Select a model and start a conversation. Responses stream word-by-word.</li>
+                <li><strong>PII Redaction Test:</strong> Type sensitive info like <code>john.doe@example.com</code> or phone <code>123-456-7890</code> or standard card numbers <code>4111 2222 3333 4444</code>. The logs in the dashboard will automatically mask these inputs/outputs!</li>
+                <li><strong>Cancellation Test:</strong> Click the <strong>Stop</strong> button while a long response is streaming to test mid-flight cancels.</li>
+                <li><strong>Error Logging:</strong> Send a message containing the phrase <code>trigger error</code>. The mock provider will fail, and you'll see the HTTP error tracked live on the dashboard.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Input Form -->
+        <footer class="chat-input-area">
+          <form id="chat-form" onsubmit="sendMessage(event)">
+            <input type="text" id="chat-input" placeholder="Type your message to start a new chat..." autocomplete="off">
+            <div class="chat-input-actions">
+              <button type="submit" id="send-btn">Send</button>
+              <button type="button" id="cancel-btn" class="hidden-btn" onclick="cancelStreaming()">Stop</button>
+            </div>
+          </form>
+        </footer>
+      </section>
+
+      <!-- Dashboard Pane -->
+      <section id="dashboard-pane" class="pane">
+        <header class="pane-header">
+          <div class="header-info">
+            <h1>Inference Metrics Dashboard</h1>
+            <p>Real-time throughput, latency, costs, and token consumption generated by your LLM calls.</p>
+          </div>
+          <button id="refresh-metrics-btn" class="secondary-btn" onclick="loadMetrics()">🔄 Refresh Stats</button>
+        </header>
+
+        <!-- Metrics Grid -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-icon">⏱️</span>
+            <div class="metric-details">
+              <h4>Avg Latency</h4>
+              <h2 id="metric-avg-latency">0 ms</h2>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-icon">🚀</span>
+            <div class="metric-details">
+              <h4>Token Throughput</h4>
+              <h2 id="metric-tps">0 t/s</h2>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-icon">💵</span>
+            <div class="metric-details">
+              <h4>Inference Cost</h4>
+              <h2 id="metric-cost">$0.0000</h2>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-icon">⚡</span>
+            <div class="metric-details">
+              <h4>Total Requests</h4>
+              <h2 id="metric-requests">0</h2>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-icon">🛡️</span>
+            <div class="metric-details">
+              <h4>PII Redactions</h4>
+              <h2 id="metric-redactions">0</h2>
+            </div>
+          </div>
+          <div class="metric-card" id="error-card">
+            <span class="metric-icon">⚠️</span>
+            <div class="metric-details">
+              <h4>Error Rate</h4>
+              <h2 id="metric-error-rate">0%</h2>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts and Breakdown Section -->
+        <div class="dashboard-visualizations">
+          <div class="viz-card">
+            <h3>Model Usage Distribution</h3>
+            <div id="model-chart-container" class="bar-chart-container">
+              <!-- Rendered Dynamically -->
+              <p class="no-data">No metrics available yet.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inference Logs Section -->
+        <div class="logs-section">
+          <div class="section-header">
+            <h3>Real-Time Inference Logs</h3>
+            <span class="live-indicator">● LIVE INGESTION</span>
+          </div>
+          
+          <div class="logs-table-wrapper">
+            <table class="logs-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Model</th>
+                  <th>Provider</th>
+                  <th>Latency</th>
+                  <th>Tokens (I/O)</th>
+                  <th>Cost</th>
+                  <th>PII Redacted</th>
+                  <th>Time</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="logs-table-body">
+                <!-- Dynamically filled -->
+                <tr>
+                  <td colspan="9" class="no-data">No logs recorded yet. Submit messages to generate logs.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Detail Modal for Logs -->
+  <div id="log-detail-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Inference Log Details</h3>
+        <span class="close-modal" onclick="closeLogModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="metadata-meta-grid">
+          <div><strong>Log ID:</strong> <span id="modal-log-id"></span></div>
+          <div><strong>Timestamp:</strong> <span id="modal-timestamp"></span></div>
+          <div><strong>Model:</strong> <span id="modal-model"></span></div>
+          <div><strong>Provider:</strong> <span id="modal-provider"></span></div>
+          <div><strong>Latency:</strong> <span id="modal-latency"></span></div>
+          <div><strong>Token Count:</strong> <span id="modal-tokens"></span></div>
+          <div><strong>Throughput:</strong> <span id="modal-throughput"></span></div>
+          <div><strong>Estimated Cost:</strong> <span id="modal-cost"></span></div>
+          <div><strong>Status Code:</strong> <span id="modal-status"></span></div>
+          <div><strong>PII Redactions:</strong> <span id="modal-redacted"></span></div>
+        </div>
+
+        <div class="modal-payload-section">
+          <h4>Input Prompt (PII Redacted)</h4>
+          <pre id="modal-input-preview" class="payload-box"></pre>
+        </div>
+
+        <div class="modal-payload-section">
+          <h4>Generated Output (PII Redacted)</h4>
+          <pre id="modal-output-preview" class="payload-box"></pre>
+        </div>
+
+        <div class="modal-payload-section">
+          <h4>Enriched Database Raw JSON Payload</h4>
+          <pre id="modal-raw-json" class="json-box"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>
