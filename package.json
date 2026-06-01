@@ -1,0 +1,13 @@
+{
+  "name": "worker-service",
+  "version": "1.0.0",
+  "description": "Background worker for consuming log events and writing to Postgres",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.3",
+    "redis": "^4.6.10"
+  }
+}
