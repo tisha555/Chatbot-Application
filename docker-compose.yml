@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: inference-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: inference_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d inference_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: inference-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ingestion-service:
+    build:
+      context: ./ingestion-service
+    container_name: inference-ingestion
+    restart: always
+    environment:
+      PORT: 3001
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3001:3001"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-service:
+    build:
+      context: ./worker-service
+    container_name: inference-worker
+    restart: always
+    environment:
+      DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/inference_db
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  chatbot-app:
+    build:
+      context: ./chatbot-app
+    container_name: inference-chatbot
+    restart: always
+    environment:
+      PORT: 3000
+      INGESTION_URL: http://ingestion-service:3001/api/logs
+      DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/inference_db
+      # Add LLM API Keys if you want to use real LLMs, otherwise it falls back to mockLLM.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ingestion-service:
+        condition: service_started
+
+volumes:
+  pgdata:
